@@ -6,6 +6,7 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if r.URL.Path == "/" {
 		_, err := fmt.Fprint(w, "Hello~ love me")
 		if err != nil {
@@ -15,6 +16,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "此博客是用以记录编程笔记，请联系"+
 			"<a href=\"mailto:summer@example.com\">summer@example.com</a>")
 	} else {
+		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprint(w, "no pages")
 	}
 }
