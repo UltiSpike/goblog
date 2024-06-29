@@ -56,7 +56,27 @@ func forceHtmlMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// 包装router
+func articlesCreateHandler(w http.ResponseWriter, r *http.Request) {
+	html := `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>创建文章 —— 我的技术博客</title>
+</head>
+<body>
+    <form action="%s" method="post">
+        <p><input type="text" name="title"></p>
+        <p><textarea name="body" cols="30" rows="10"></textarea></p>
+        <p><button type="submit">提交</button></p>
+    </form>
+</body>
+</html>
+`
+	storeURL, _ := router.Get("articles.store").URL()
+	fmt.Fprintf(w, html, storeURL)
+}
+
+// 包装mux router
 func removeTrailingSlash(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 除首页外，移除所有请求路径后面的斜杠
@@ -69,8 +89,10 @@ func removeTrailingSlash(next http.Handler) http.Handler {
 	})
 }
 
+var router = mux.NewRouter()
+
 func main() {
-	router := mux.NewRouter()
+
 	//router := http.NewServeMux()
 	router.HandleFunc("/", homeHandler).Name("home")
 	router.HandleFunc("/about", aboutHandler)
@@ -85,12 +107,13 @@ func main() {
 	// gorilla/mux 限定类型的方式 [0-9]+
 	router.HandleFunc("/articles/{id:[0-9]+}", articleShowHandler).Methods(
 		"GET").Name("articles.show")
+	router.HandleFunc("/articles/create", articlesCreateHandler).Methods(
+		"GET").Name("articles.create")
 
+	// 自定义 404 界面
+	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
 	router.Use(forceHtmlMiddleware)
-	homeURL, _ := router.Get("home").URL()
-	fmt.Println("homeURL: ", homeURL)
-	articleURL, _ := router.Get("articles.show").URL("id", "1")
-	fmt.Println("articleURL: ", articleURL)
 
 	http.ListenAndServe(":3000", removeTrailingSlash(router))
+
 }
