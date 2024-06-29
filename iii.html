@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <title>Title</title>
+    <style type="text/css">.error</style>
+</head>
+<body>
+    <form action="{{ .URL }}" METHOD="post">
+        <p> <input type="text" name="title" value = "{{.Title}}"></p>
+        {{ with.Errors.title}}
+        <p class=" error"> {{ . }}</p>
+        {{ end }}
+        <p><textarea name = "body" cols=" 30" rows="10" > {{ .Body}} </textarea></p>
+        {{ with.Errors.body}}
+        <p class="error">{{.}}</p>
+        {{ end }}
+        <p> <button type="submit"></button></p>
+    </form>
+</body>
+</html>
