@@ -89,7 +89,7 @@ func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
 			URL:    storeURL,
 			Errors: errors,
 		}
-		tmpl, err := template.ParseFiles("/resources/views/articles/create.gohtml")
+		tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
 		if err != nil {
 			panic(err)
 		}
