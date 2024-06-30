@@ -3,8 +3,11 @@ package main
 import (
 	"fmt"
 	"github.com/gorilla/mux"
+	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
+	"unicode/utf8"
 )
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
@@ -42,15 +45,81 @@ func articlesIndexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func articleStoreHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := fmt.Fprintf(w, "创建新文章")
-	if err != nil {
-		return
+type ArticlesFormData struct {
+	Title, Body string
+	URL         *url.URL
+	Errors      map[string]string
+}
+
+func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
+
+	title := r.PostFormValue("title")
+	body := r.PostFormValue("body")
+
+	errors := make(map[string]string)
+
+	// 验证标题
+	if title == "" {
+		errors["title"] = "标题不能为空"
+	} else if utf8.RuneCountInString(title) < 3 || utf8.RuneCountInString(title) > 40 {
+		errors["title"] = "标题长度需介于 3-40"
+	}
+
+	// 验证内容
+	if body == "" {
+		errors["body"] = "内容不能为空"
+	} else if utf8.RuneCountInString(body) < 10 {
+		errors["body"] = "内容长度需大于或等于 10 个字节"
+	}
+
+	// 检查是否有错误
+	if len(errors) == 0 {
+		fmt.Fprint(w, "验证通过!<br>")
+		fmt.Fprintf(w, "title 的值为: %v <br>", title)
+		fmt.Fprintf(w, "title 的长度为: %v <br>", utf8.RuneCountInString(title))
+		fmt.Fprintf(w, "body 的值为: %v <br>", body)
+		fmt.Fprintf(w, "body 的长度为: %v <br>", utf8.RuneCountInString(body))
+	} else {
+		html := `
+`
+		storeURL, _ := router.Get("articles.store").URL()
+
+		data := ArticlesFormData{
+			Title:  title,
+			Body:   body,
+			URL:    storeURL,
+			Errors: errors,
+		}
+		tmpl, err := template.New("create-form").Parse(html)
+		if err != nil {
+			panic(err)
+		}
+
+		err = tmpl.Execute(w, data)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
 func articlesCreateHandler(w http.ResponseWriter, r *http.Request) {
-
+	html := `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>创建文章 —— 我的技术博客</title>
+</head>
+<body>
+    <form action="%s?test=data" method="post">
+        <p><input type="text" name="title"></p>
+        <p><textarea name="body" cols="30" rows="10"></textarea></p>
+        <p><button type="submit">提交</button></p>
+    </form>
+</body>
+</html>
+`
+	storeURL, _ := router.Get("articles.store").URL()
+	fmt.Fprintf(w, html, storeURL)
 }
 
 func forceHtmlMiddleware(next http.Handler) http.Handler {
@@ -86,7 +155,7 @@ func main() {
 	})
 	router.HandleFunc("/articles", articlesIndexHandler).Methods(
 		"GET").Name("articles.index")
-	router.HandleFunc("/articles", articleStoreHandler).Methods(
+	router.HandleFunc("/articles", articlesStoreHandler).Methods(
 		"POST").Name("articles.store")
 	// gorilla/mux 限定类型的方式 [0-9]+
 	router.HandleFunc("/articles/{id:[0-9]+}", articleShowHandler).Methods(
