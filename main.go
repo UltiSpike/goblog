@@ -153,8 +153,8 @@ func initDB() {
 	var err error
 	// dsn 数据源信息
 	var config = &mysql.Config{
-		User:                 "homestead",
-		Passwd:               "secret",
+		User:                 "root",
+		Passwd:               "abc123",
 		Addr:                 "127.0.0.1:3306",
 		Net:                  "tcp",
 		DBName:               "goBlog",
@@ -181,9 +181,20 @@ func checkError(err error) {
 	}
 }
 
+func createTables() {
+	createArticlesSQL := `CREATE TABLE IF NOT EXISTS articles(
+    	id bigint(20) PRIMARY KEY AUTO_INCREMENT NOT NULL,
+		title varchar(255) COLLATE utf8bm4_unicode_ci NOT NULL, 
+		body longtext COLLATE utf8bm4_unicode_ci);`
+
+	_, err := db.Exec(createArticlesSQL)
+	checkError(err)
+}
+
 func main() {
 	//router := http.NewServeMux()
 	initDB()
+	createTables()
 	router.HandleFunc("/", homeHandler).Name("home")
 	router.HandleFunc("/about", aboutHandler)
 	router.HandleFunc("/articles/", func(w http.ResponseWriter, r *http.Request) {
