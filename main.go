@@ -49,6 +49,10 @@ func articleStoreHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func articlesCreateHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
 func forceHtmlMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -69,9 +73,11 @@ func removeTrailingSlash(next http.Handler) http.Handler {
 	})
 }
 
+var router = mux.NewRouter()
+
 func main() {
-	router := mux.NewRouter()
 	//router := http.NewServeMux()
+
 	router.HandleFunc("/", homeHandler).Name("home")
 	router.HandleFunc("/about", aboutHandler)
 	router.HandleFunc("/articles/", func(w http.ResponseWriter, r *http.Request) {
@@ -85,12 +91,9 @@ func main() {
 	// gorilla/mux 限定类型的方式 [0-9]+
 	router.HandleFunc("/articles/{id:[0-9]+}", articleShowHandler).Methods(
 		"GET").Name("articles.show")
+	router.HandleFunc("/articles/create", articlesCreateHandler).Methods("GET").Name("articles.create")
 
 	router.Use(forceHtmlMiddleware)
-	homeURL, _ := router.Get("home").URL()
-	fmt.Println("homeURL: ", homeURL)
-	articleURL, _ := router.Get("articles.show").URL("id", "1")
-	fmt.Println("articleURL: ", articleURL)
 
 	http.ListenAndServe(":3000", removeTrailingSlash(router))
 }
