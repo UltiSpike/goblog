@@ -79,11 +79,7 @@ func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 检查是否有错误
 	if len(errors) == 0 {
-		fmt.Fprint(w, "验证通过!<br>")
-		fmt.Fprintf(w, "title 的值为: %v <br>", title)
-		fmt.Fprintf(w, "title 的长度为: %v <br>", utf8.RuneCountInString(title))
-		fmt.Fprintf(w, "body 的值为: %v <br>", body)
-		fmt.Fprintf(w, "body 的长度为: %v <br>", utf8.RuneCountInString(body))
+		//lastInsertID, err :=
 	} else {
 
 		storeURL, _ := router.Get("articles.store").URL()
@@ -189,6 +185,34 @@ func createTables() {
 
 	_, err := db.Exec(createArticlesSQL)
 	checkError(err)
+}
+
+func saveArticleToDB(title string, body string) (int64, error) {
+	var (
+		id   int64
+		err  error
+		rs   sql.Result
+		stmt *sql.Stmt
+	)
+	// 1.获取一个 prepare声明语句
+	// 防止sql注入
+	stmt, err = db.Prepare("INSERT INTO articles(title, body) VALUES(?, ?)")
+	if err != nil {
+		return 0, err
+	}
+	// 2. 插入完成后关闭此语句，防止占用连接
+	defer stmt.Close()
+
+	// 3.执行请求，传参
+	rs, err = stmt.Exec(title, body)
+	if err != nil {
+		return 0, err
+	}
+
+	if id, err = rs.LastInsertId(); id > 0 {
+		return id, err
+	}
+	return 0, err
 }
 
 func main() {
