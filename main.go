@@ -1,20 +1,19 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"html/template"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
-
-type ArticlesFormData struct {
-	Title, Body string
-	URL         *url.URL
-	Errors      map[string]string
-}
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
@@ -51,69 +50,76 @@ func articlesIndexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type ArticlesFormData struct {
+	Title, Body string
+	URL         *url.URL
+	Errors      map[string]string
+}
+
 func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
+
 	title := r.PostFormValue("title")
 	body := r.PostFormValue("body")
+
 	errors := make(map[string]string)
+
+	// 验证标题
 	if title == "" {
 		errors["title"] = "标题不能为空"
 	} else if utf8.RuneCountInString(title) < 3 || utf8.RuneCountInString(title) > 40 {
-		errors["title"] = "标题长度须在3-40之间"
+		errors["title"] = "标题长度需介于 3-40"
 	}
 
+	// 验证内容
 	if body == "" {
 		errors["body"] = "内容不能为空"
 	} else if utf8.RuneCountInString(body) < 10 {
-		errors["body"] = "内容要大于10"
+		errors["body"] = "内容长度需大于或等于 10 个字节"
 	}
 
+	// 检查是否有错误
 	if len(errors) == 0 {
-		fmt.Fprintf(w, "验证通过! <br>")
-		fmt.Fprintf(w, "title 的值为: %v <br>", title)
-		fmt.Fprintf(w, "title 的长度为: %v <br>", len(title))
-		fmt.Fprintf(w, "body 的值为: %v <br>", body)
-		fmt.Fprintf(w, "body 的长度为: %v <br>", len(body))
+		//lastInsertID, err :=
 	} else {
-		html :=
-			`
-<!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/html">
-<head>
-    <title>Title</title>
-    <style type="text/css">.error {color :red}</style>
-</head>
-<body>
-    <form action="{{ .URL }}" METHOD="post">
-        <p> <input type="text" name="title" value = "{{ .Title }}"></p>
-        {{ with .Errors.title}}
-        <p class="error"> {{ . }}</p>
-        {{ end }}
-        <p><textarea name = "body" cols="30" rows="10" > {{ .Body}} </textarea></p>
-        {{ with .Errors.body}}
-        <p class="error">{{.}}</p>
-        {{ end }}
-        <p> <button type="submit">提交</button></p>
-    </form>
-</body>
-</html>
-`
+
 		storeURL, _ := router.Get("articles.store").URL()
+
 		data := ArticlesFormData{
 			Title:  title,
 			Body:   body,
 			URL:    storeURL,
 			Errors: errors,
 		}
-		tmpl, err := template.New("create-form").Parse(html)
+		tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
 		if err != nil {
 			panic(err)
 		}
+
 		err = tmpl.Execute(w, data)
 		if err != nil {
 			panic(err)
 		}
 	}
+}
 
+func articlesCreateHandler(w http.ResponseWriter, r *http.Request) {
+
+	storeURL, _ := router.Get("articles.store").URL()
+	data := ArticlesFormData{
+		Title:  "",
+		Body:   "",
+		URL:    storeURL,
+		Errors: nil,
+	}
+	tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
+	if err != nil {
+		panic(err)
+	}
+
+	err = tmpl.Execute(w, data)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func forceHtmlMiddleware(next http.Handler) http.Handler {
@@ -123,29 +129,7 @@ func forceHtmlMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func articlesCreateHandler(w http.ResponseWriter, r *http.Request) {
-	html := `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <title>创建文章 —— 我的技术博客</title>
-</head>
-<body>
-	
-    <form action="%s?test=data" method="post">
-        <p><input type="text" name="title"></p>
-        <p><textarea name="body" cols="30" rows="10"></textarea></p>
-        <p><button type="submit">提交</button></p>
-    </form>
-</body>
-</html>
-`
-	storeURL, _ := router.Get("articles.store").URL()
-	// fprintf约等于printf  html设置一个 %s 占位符 读取storeUrl的值
-	fmt.Fprintf(w, html, storeURL)
-}
-
-// 包装mux router
+// 包装router
 func removeTrailingSlash(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 除首页外，移除所有请求路径后面的斜杠
@@ -159,10 +143,82 @@ func removeTrailingSlash(next http.Handler) http.Handler {
 }
 
 var router = mux.NewRouter()
+var db *sql.DB
+
+func initDB() {
+	var err error
+	// dsn 数据源信息
+	var config = &mysql.Config{
+		User:                 "root",
+		Passwd:               "abc123",
+		Addr:                 "127.0.0.1:3306",
+		Net:                  "tcp",
+		DBName:               "goBlog",
+		AllowNativePasswords: true,
+	}
+	//初始化一个 *sql.DB结构体实例 准备数据库连接池
+	db, err = sql.Open("mysql", config.FormatDSN())
+	checkError(err)
+	//最大连接数
+	db.SetMaxOpenConns(25)
+	//	最大空闲连接数
+	db.SetMaxIdleConns(25)
+	//	设置每个链接的过期时间
+	db.SetConnMaxIdleTime(5 * time.Minute)
+
+	//	连接测试
+	err = db.Ping()
+	checkError(err)
+}
+
+func checkError(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func createTables() {
+	createArticlesSQL := `CREATE TABLE IF NOT EXISTS articles(
+    	id bigint(20) PRIMARY KEY AUTO_INCREMENT NOT NULL,
+		title varchar(255) COLLATE utf8bm4_unicode_ci NOT NULL, 
+		body longtext COLLATE utf8bm4_unicode_ci);`
+
+	_, err := db.Exec(createArticlesSQL)
+	checkError(err)
+}
+
+func saveArticleToDB(title string, body string) (int64, error) {
+	var (
+		id   int64
+		err  error
+		rs   sql.Result
+		stmt *sql.Stmt
+	)
+	// 1.获取一个 prepare声明语句
+	// 防止sql注入
+	stmt, err = db.Prepare("INSERT INTO articles(title, body) VALUES(?, ?)")
+	if err != nil {
+		return 0, err
+	}
+	// 2. 插入完成后关闭此语句，防止占用连接
+	defer stmt.Close()
+
+	// 3.执行请求，传参
+	rs, err = stmt.Exec(title, body)
+	if err != nil {
+		return 0, err
+	}
+
+	if id, err = rs.LastInsertId(); id > 0 {
+		return id, err
+	}
+	return 0, err
+}
 
 func main() {
-
 	//router := http.NewServeMux()
+	initDB()
+	createTables()
 	router.HandleFunc("/", homeHandler).Name("home")
 	router.HandleFunc("/about", aboutHandler)
 	router.HandleFunc("/articles/", func(w http.ResponseWriter, r *http.Request) {
@@ -176,13 +232,9 @@ func main() {
 	// gorilla/mux 限定类型的方式 [0-9]+
 	router.HandleFunc("/articles/{id:[0-9]+}", articleShowHandler).Methods(
 		"GET").Name("articles.show")
-	router.HandleFunc("/articles/create", articlesCreateHandler).Methods(
-		"GET").Name("articles.create")
+	router.HandleFunc("/articles/create", articlesCreateHandler).Methods("GET").Name("articles.create")
 
-	// 自定义 404 界面
-	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
 	router.Use(forceHtmlMiddleware)
 
 	http.ListenAndServe(":3000", removeTrailingSlash(router))
-
 }
