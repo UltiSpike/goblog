@@ -1,0 +1,18 @@
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <title> 编辑文章 - 我的技术博客</title>
+    <style type="text/css">.error{color:red;}</style>
+</head>
+<body>
+    <form action="{{ .URL }}}" METHOD="post">
+        <P><input type="text" name="title" value="{{ .Title }}"></P>
+        {{ with  .Errors.title }}}
+    </form>
+
+
+</body>
+</html>
+
+
+
+</html>

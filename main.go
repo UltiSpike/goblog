@@ -158,6 +158,42 @@ func articlesCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func artilcesEditHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	article := Article{}
+	query := "SELECT * FROM articles WHERE id=?"
+	err := db.QueryRow(query, id).Scan(&article.ID, &article.Title, &article.Body)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, "未找到")
+		} else {
+			checkError(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, "服务器状态出错")
+		}
+	} else {
+		updateURL, _ := router.Get("articles.update").URL("id", id)
+		data := ArticlesFormData{
+			Title:  article.Title,
+			Body:   article.Body,
+			URL:    updateURL,
+			Errors: nil,
+		}
+		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
+		checkError(err)
+		err = tmpl.Execute(w, data)
+		checkError(err)
+	}
+
+}
+
+func articlesUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, "更新文章")
+}
+
 func forceHtmlMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -271,7 +307,8 @@ func main() {
 	router.HandleFunc("/articles/{id:[0-9]+}", articleShowHandler).Methods(
 		"GET").Name("articles.show")
 	router.HandleFunc("/articles/create", articlesCreateHandler).Methods("GET").Name("articles.create")
-
+	router.HandleFunc("/articles/{id:[0-9]+}", articlesUpdateHandler).Methods("post").Name("articles.update")
+	router.HandleFunc("/articles/{id:[0-9]+}/edit", artilcesEditHandler).Methods("post").Name("articles.edit")
 	//自定义 404 页面
 	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
 	router.Use(forceHtmlMiddleware)
