@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -79,7 +80,13 @@ func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 检查是否有错误
 	if len(errors) == 0 {
-		//lastInsertID, err :=
+		lastInsertID, err := saveArticleToDB(title, body)
+		if lastInsertID > 0 {
+			// 把int64类型的输入转为对应的进制数字并转为字符串
+			fmt.Fprint(w, "插入成功， id:"+strconv.FormatInt(lastInsertID, 10))
+		} else {
+			checkError(err)
+		}
 	} else {
 
 		storeURL, _ := router.Get("articles.store").URL()
@@ -199,6 +206,7 @@ func saveArticleToDB(title string, body string) (int64, error) {
 	// 防止sql注入
 	stmt, err = db.Prepare("INSERT INTO articles(title, body) VALUES(?, ?)")
 	if err != nil {
+		checkError(err)
 		return 0, err
 	}
 	// 2. 插入完成后关闭此语句，防止占用连接
