@@ -149,11 +149,11 @@ func initDB() {
 	var err error
 	// dsn 数据源信息
 	var config = &mysql.Config{
-		User:                 "root",
+		User:                 "pochita",
 		Passwd:               "abc123",
-		Addr:                 "127.0.0.1:3306",
+		Addr:                 "124.222.100.136:3306",
 		Net:                  "tcp",
-		DBName:               "goBlog",
+		DBName:               "goblog",
 		AllowNativePasswords: true,
 	}
 	//初始化一个 *sql.DB结构体实例 准备数据库连接池
@@ -179,9 +179,10 @@ func checkError(err error) {
 
 func createTables() {
 	createArticlesSQL := `CREATE TABLE IF NOT EXISTS articles(
-    	id bigint(20) PRIMARY KEY AUTO_INCREMENT NOT NULL,
-		title varchar(255) COLLATE utf8bm4_unicode_ci NOT NULL, 
-		body longtext COLLATE utf8bm4_unicode_ci);`
+    id bigint(20) PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    title varchar(255) COLLATE utf8mb4_0900_ai_ci NOT NULL,
+    body longtext COLLATE utf8mb4_0900_ai_ci
+);`
 
 	_, err := db.Exec(createArticlesSQL)
 	checkError(err)
