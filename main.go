@@ -35,12 +35,41 @@ func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "<h1>请求页面未找到 :(</h1><p>如有疑惑，请联系我们。</p>")
 }
 
+type Article struct {
+	Title, Body string
+	ID          int64
+}
+
 func articleShowHandler(w http.ResponseWriter, r *http.Request) {
+	// 获取参数
 	vars := mux.Vars(r)
 	id := vars["id"]
-	_, i := fmt.Fprintf(w, "文章id"+id)
-	if i != nil {
-		return
+
+	//	2.读取对应的文章数据
+	article := Article{}
+	query := "SELECT * FROM articles WHERE id=?"
+	// QueryRow封装了 prepare方法，参数只有一个的情况下采用纯文本模式，多个参数的情况下会默认调用Prepare
+	//qr := db.QueryRow(query, id)
+	//err := qr.Scan(&article.ID, &article.Title, &article.Body)
+	err := db.QueryRow(query, id).Scan(&article.ID, &article.Title, &article.Body)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// 3.1 数据未找到
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, "404文章未找到")
+		} else {
+			// 3.2 数据库错误
+			checkError(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, "500 服务器内部错误")
+		}
+	} else {
+		//4. 读取成功， 显示文章
+		tmpl, err := template.ParseFiles("resources/views/articles/show.gohtml")
+		checkError(err)
+		err = tmpl.Execute(w, article)
+		checkError(err)
+		//fmt.Fprint(w, "读取成功，文章标题 ------"+article.Title)
 	}
 }
 
@@ -243,6 +272,8 @@ func main() {
 		"GET").Name("articles.show")
 	router.HandleFunc("/articles/create", articlesCreateHandler).Methods("GET").Name("articles.create")
 
+	//自定义 404 页面
+	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
 	router.Use(forceHtmlMiddleware)
 
 	http.ListenAndServe(":3000", removeTrailingSlash(router))
